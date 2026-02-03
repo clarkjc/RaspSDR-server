@@ -207,14 +207,7 @@ function config_html()
 
 	var s4 =
 		'<hr>' +
-		w3_third('w3-margin-bottom w3-text-teal', 'w3-container',
-			w3_divs('w3-restart/w3-center w3-tspace-8',
-				w3_select_get_param('w3-width-auto', 'Status LED brightness', '', 'led_brightness', led_brightness_i, 'admin_select_cb', 0),
-				w3_div('w3-text-black',
-					'Sets brightness of the 4 LEDs <br> that show status info.'
-				)
-			),
-
+		w3_half('w3-margin-bottom w3-text-teal', 'w3-container',
 			w3_divs('w3-restart/w3-center w3-tspace-8',
 				w3_select_get_param('w3-width-auto', 'CAT interface baud rate', '', 'CAT_baud', admin_sdr.CAT_baud_s, 'admin_select_cb', 0),
 				w3_div('w3-text-black',
