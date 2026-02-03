@@ -72,6 +72,11 @@ var owrx = {
    dx_click_gid_last_stored: undefined,
    dx_click_gid_last_until_tune: undefined,
    
+   PB_LO: 0,
+   PB_HI: 1,
+   PB_CENTER: 2,
+   PB_WIDTH: 3,
+
    wheel_tunes: 0,
 
    sam_pll: 1,
@@ -1267,6 +1272,15 @@ function demodulator_default_analog(offset_frequency, subtype, locut, hicut)
 				center_freq + this.parent.offset_frequency + this.parent.high_cut,
 				this.color,
 				center_freq + this.parent.offset_frequency);
+
+      var lo = this.parent.low_cut;
+      var hi = this.parent.high_cut;
+      var center = _10Hz(lo + (hi - lo) / 2);
+      var width = hi - lo;
+      setpb_cb('', lo, 0, 0, (-owrx.PB_LO)-1);
+      setpb_cb('', hi, 0, 0, (-owrx.PB_HI)-1);
+      setpb_cb('', center, 0, 0, (-owrx.PB_CENTER)-1);
+      setpb_cb('', width, 0, 0, (-owrx.PB_WIDTH)-1);
 
       // replace bw in lo/hi/cf tooltips with "PBT" when shift key changed before dragging starts or while it is ongoing
       var isAdjPBT = (owrx.last_shiftKey || this.dragged_range == demodulator.draggable_ranges.pbs);
@@ -10276,6 +10290,9 @@ function panels_setup()
 	de_emphasis_nfm = w3_clamp(de_emphasis_nfm, 0, 2, 0);
 	kiwi.pan = readCookie('last_pan', 0);
 
+   var slpct = 65;
+   var step = 10;
+
 	w3_el('id-optbar-audio').innerHTML =
 		w3_inline_percent('w3-valign/w3-last-halign-end',
 			w3_text('w3-text-css-orange cl-closer-spaced-label-text', 'Noise'), 17,
@@ -10328,17 +10345,38 @@ function panels_setup()
             w3_button('class-button w3-hcenter||title="PLL reset"', 'Reset', 'sam_pll_reset_cb')
          )
       ) +
-      //w3_inline_percent('w3-margin-T-2 w3-valign/',
-      w3_inline('w3-margin-T-2 w3-valign w3-halign-end/class-slider',
-         //w3_div(''), 27,
-         //w3_inline('w3-halign-space-between/w3-last-halign-end',
+      w3_inline('w3-margin-T-2 w3-valign w3-halign-space-between/class-slider',
+         w3_button('w3-padding-tiny w3-yellow||title="restore passband"', 'PB default', 'pb_default_cb'),
+         w3_inline('',
             w3_select('id-chan-null w3-text-red w3-margin-R-6 w3-hide||title="channel null"', '', 'channel<br>null', 'owrx.chan_null', owrx.chan_null, owrx.chan_null_s, 'chan_null_cb'),
             //w3_select('id-SAM-opts w3-text-red w3-hide||title="SAM options"', '', 'SAM<br>options', 'owrx.SAM_opts', owrx.SAM_opts, owrx.SAM_opts_s, 'SAM_opts_cb'),
             w3_select('id-ovld-mute w3-text-red||title="overload mute"', '', 'ovld<br>mute', 'owrx.ovld_mute', owrx.ovld_mute, owrx.ovld_mute_s, 'ovld_mute_cb')
-         //)
-      );
-      
-      //w3_button('id-button-test class-button w3-hcenter w3-hide', 'Test', 'toggle_or_set_test')
+         )
+      ) +
+         w3_div('',
+            w3_inline_percent('w3-valign w3-margin-T-2/class-slider',
+               w3_text('w3-text-css-orange', 'PB low'), 20,
+               w3_slider('id-pb-lo w3-wheel-shift', '', '', 0, 0, 0, step, 'setpb_cb', owrx.PB_LO), slpct,
+               w3_div('id-pb-lo-val w3-margin-L-10')
+            ),
+            w3_inline_percent('w3-valign w3-margin-T-2/class-slider',
+               w3_text('w3-text-css-orange', 'PB high'), 20,
+               w3_slider('id-pb-hi w3-wheel-shift', '', '', 0, 0, 0, step, 'setpb_cb', owrx.PB_HI), slpct,
+               w3_div('id-pb-hi-val w3-margin-L-10')
+            ),
+            w3_inline_percent('w3-valign w3-margin-T-2/class-slider',
+               w3_text('w3-text-css-orange', 'PB center'), 20,
+               w3_slider('id-pb-center w3-wheel-shift', '', '', 0, 0, 0, step, 'setpb_cb', owrx.PB_CENTER), slpct,
+               w3_div('id-pb-center-val w3-margin-L-10')
+            ),
+            w3_inline_percent('w3-valign w3-margin-T-2/class-slider',
+               w3_text('w3-text-css-orange', 'PB width'), 20,
+               w3_slider('id-pb-width w3-wheel-shift', '', '', 0, 0, 0, step, 'setpb_cb', owrx.PB_WIDTH), slpct,
+               w3_div('id-pb-width-val w3-margin-L-10')
+            )
+         );
+
+   //w3_button('id-button-test class-button w3-hcenter w3-hide', 'Test', 'toggle_or_set_test')
 
    kiwi_load_js_dir('extensions/', ['noise_blank/noise_blank.js', 'noise_filter/noise_filter.js'],
       function() {
@@ -11223,6 +11261,72 @@ function audio_panner_ui_init()
    }
 }
 
+function pb_default_cb()
+{
+   restore_passband(cur_mode);
+   demodulator_analog_replace(cur_mode);
+   freqset_update_ui(owrx.FSET_NOP);      // restore previous
+}
+
+function setpb_cb(path, val, done, first, which)
+{
+   val = +val;
+   which = +which;
+ 
+   var slider_input = false;
+   if (which < 0)
+      which = -which - 1;     // called from other code with new lo/hi values
+   else
+      slider_input = true;    // called from sliders being adjusted
+   
+   var id = 'id-pb-'+ ['lo', 'hi', 'center', 'width'][which];
+   //console.log('setpb_cb in='+ TF(slider_input) +' val='+ val +' '+ id + (slider_input? (' done='+ TF(done)) : ''));
+   var hpb = _10Hz(audio_input_rate/2);
+   var el = w3_el(id);
+	var m = isDefined(cur_mode)? cur_mode.substr(0,2) : 'xx';
+   if (m == 'us') {
+      el.min = 0;
+      el.max = (which == owrx.PB_WIDTH)? audio_input_rate : hpb;
+   } else
+   if (m == 'ls') {
+      el.min = -hpb;
+      el.max = (which == owrx.PB_WIDTH)? audio_input_rate : 0;
+   } else {
+      el.min = (which == owrx.PB_WIDTH)? 0 : -hpb;
+      el.max = (which == owrx.PB_WIDTH)? audio_input_rate : hpb;
+   }
+
+   if (slider_input) {
+      var demod = demodulators[0];
+      if (!isArg(demod)) return;    // too early
+      
+      var lo = demod.low_cut, hi = demod.high_cut, center = _10Hz(lo + (hi-lo) / 2), width = hi-lo;
+      var _lo = lo, _hi = hi;
+      switch (which) {
+         case owrx.PB_LO: lo = val; break;
+         case owrx.PB_HI: hi = val; break;
+         case owrx.PB_CENTER: center = val; lo = _10Hz(center - width/2); hi = _10Hz(center + width/2); break;
+         case owrx.PB_WIDTH: width = val; lo = _10Hz(center - width/2); hi = _10Hz(center + width/2); break;
+      }
+      // owrx passband code will eventually callback this routine setting all 4 sliders
+      //if (which == 3) console.log('pb width='+ width +' center='+ center);
+      //console.log('setpb_cb '+ _lo +'|'+ _hi +' => '+ lo +'|'+ hi +' val='+ val +' hpb='+ hpb);
+      var ok = 1;
+      _lo = Math.max(lo, -hpb);
+      _hi = Math.min(hi, hpb);
+      var _width = _10Hz(_hi-_lo);
+      var _center = _10Hz(_lo + _width / 2);
+      if (which == 2 && _width != width) ok = 0;      // adjusting center: width must not change
+      //if (which == 2 && _width != width) console.log('pb2 _width='+ _width +' width='+ width +' center='+ center +' '+ lo +'|'+ hi +' '+ _lo +'|'+ _hi);
+      if (which == 3 && _center != center) ok = 0;    // adjusting width: center must not change
+      //if (!ok) console.log('pb !ok _width='+ _width +' width='+ width);
+      if (ok)
+         ext_set_passband(_lo, _hi);
+   } else {
+      w3_set_value(id, val);
+      w3_innerHTML(id +'-val', val);
+   }
+}
 
 function toggle_or_set_hide_bars(set)
 {

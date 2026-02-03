@@ -569,6 +569,21 @@ Number.prototype.withSign = function()
 
 var kHz = function(f) { return (f / 1e3).toFixed(3) +'k'; }
 
+// need symmetry for negative f in passband calcs
+function _10Hz(f) {
+   var step = 10;
+   if (f >= 0) {
+      return Math.trunc(f/step) * step;
+   } else {
+      return -(Math.ceil(-f/step) * step);
+   }
+}
+
+function _10Hz_round(f) {
+   var step = 10;
+   return Math.round(f/step) * step;
+}
+
 // like setTimeout() except also calls once immediately
 function kiwi_setTimeout(func, msec, param)
 {
