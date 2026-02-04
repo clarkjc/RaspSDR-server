@@ -224,6 +224,18 @@ function kiwi_version_cb(response_obj)
 	//console.log('conn_tstamp='+ kiwi.conn_tstamp);
 	
 	kiwi_bodyonload(s);
+
+	// Workaround for Safari 26.2 SND web socket hang problem.
+	// Doing this /status XHR transaction clears the web socket hang.
+	// However things still do not work in Private Relay mode.
+	// Discovered by Philippe (Tremolat) on the Kiwi Forum.
+	if (kiwi_isSafari()) {
+      setTimeout(function() {
+         kiwi_ajax("/status", function(o) {
+            console.log(o);
+         });
+      }, 100);
+   }
 }
 
 function kiwi_version_continue_cb()
