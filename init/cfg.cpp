@@ -1571,15 +1571,8 @@ void _cfg_save_json(cfg_t* cfg, char* json) {
     }
     TMEAS(u4_t split = timer_ms(); printf("cfg_save_json SPLIT %s reparse %.3f msec\n", cfg->basename, TIME_DIFF_MS(split, start));)
 
-    // File writes can sometimes take a long time -- use a child task and wait via NextTask()
-    // CAUTION: Must not do any task yielding until re-parse above (if any) is finished
-    // so other tasks don't see an empty cfg. So delay write of file until here.
-    int status = child_task("kiwi.cfg", _cfg_write_file, POLL_MSEC(100), TO_VOID_PARAM(cfg));
-    int exit_status;
-    if (WIFEXITED(status) && (exit_status = WEXITSTATUS(status))) {
-        printf("cfg_write_file exit_status=0x%x\n", exit_status);
-    }
 
+    _cfg_write_file(cfg);
     free(cfg->json_write);
     // printf("cfg_save_json DONE\n");
 
